@@ -1,0 +1,143 @@
+service: demo-service
+
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  lambdaHashingVersion: 20201221
+#  role: MicrositeRolemicrositeBackend
+
+plugins:
+  - serverless-localstack
+  - serverless-step-functions
+
+custom:
+  localstack:
+    stages:
+      # list of stages for which the plugin should be enabled
+      - local
+    host: http://localhost  # optional - LocalStack host to connect to
+    edgePort: 4566  # optional - LocalStack edge port to connect to
+    autostart: true  # optional - Start LocalStack in Docker on Serverless deploy
+    lambda:
+      # Enable this flag to improve performance
+      mountCode: True
+    docker:
+      # Enable this flag to run "docker ..." commands as sudo
+      sudo: False
+
+# you can overwrite defaults here
+#  stage: dev
+#  region: us-east-1
+
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - http:
+          path: v2/incoming
+          method: get
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Requested-With
+            allowCredentials: false
+
+  PostUserDetails:
+    handler: handler.postUserDetails
+
+  GetUserDetails:
+    handler: handler.getUserDetails
+
+stepFunctions:
+  stateMachines:
+    DemoServiceUserDetails:
+      name: DemoServiceUserDetails
+      definition:
+        StartAt: PostUserDetails
+        States:
+          PostUserDetails:
+            Type: Task
+            Resource: "arn:aws:lambda:us-east-1:000000000000:function:demo-service-dev-PostUserDetails"
+            Next: GetUserDetails
+
+          GetUserDetails:
+            Type: Task
+            Resource: "arn:aws:lambda:us-east-1:000000000000:function:demo-service-dev-GetUserDetails"
+            End: true
+
+
+
+resources:
+  Resources:
+    DemoDynamoTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: "demo-service-db"
+
+        AttributeDefinitions:
+          - AttributeName: "name"
+            AttributeType: "S"
+
+        BillingMode: "PAY_PER_REQUEST"
+
+        KeySchema:
+          - AttributeName: "name"
+            KeyType: "HASH"
+
+
+#    MicrositeRolemicrositeBackend:
+#      Type: AWS::IAM::Role
+#      Properties:
+#        RoleName: microsite-iam-${opt:stage}-rolemicrosite-backend16
+#        AssumeRolePolicyDocument:
+#          Version: '2012-10-17'
+#          Statement:
+#            - Effect: "Allow"
+#              Principal:
+#                Service:
+#                  - "lambda.amazonaws.com"
+#              Action: "sts:AssumeRole"
+#        Policies:
+#          - PolicyName: microsite-iam-${opt:stage}-policy9
+#            PolicyDocument:
+#              Version: '2012-10-17'
+#              Statement:
+#                - Effect: "Allow"
+#                  Action:
+#                    - "logs:CreateLogGroup"
+#                    - "logs:CreateLogStream"
+#                    - "logs:PutLogEvents"
+#                  Resource: "*"
+#                - Effect: "Allow"
+#                  Action:
+#                    - "ec2:CreateNetworkInterface"
+#                    - "ec2:DescribeNetworkInterfaces"
+#                    - "ec2:DetachNetworkInterface"
+#                    - "ec2:AttachNetworkInterface"
+#                    - "ec2:DeleteNetworkInterface"
+#                  Resource:
+#                    - "*"
+#
+#                - Effect: "Allow"
+#                  Action:
+#                    - "s3:*"
+#                  Resource: "*"
+#
+#                - Effect: "Allow"
+#                  Action:
+#                    - "states:*"
+#                  Resource: "*"
+#
+#                - Effect: "Allow"
+#                  Action:
+#                    - "dynamodb:*"
+#                  Resource: "*"
