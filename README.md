@@ -1,0 +1,1 @@
+# local-stack-demo-service
